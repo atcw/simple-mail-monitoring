@@ -1,0 +1,6 @@
+[Unit]
+Description=tests smtp mail delivery on local postfix
+
+[Service]
+Type=oneshot
+ExecStart=/root/simple-mail-monitoring/test_mail_delivery.py

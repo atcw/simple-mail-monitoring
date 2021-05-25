@@ -2,6 +2,8 @@
 import logging
 import os
 import traceback
+import shutil
+import sys
 from datetime import datetime
 from email import message_from_string
 from email.mime.text import MIMEText
@@ -122,51 +124,28 @@ def send_test_message(subject: str):
     logging.info('sent test email with subject "%s"', subject)
 
 
-def write_textfile(metrics: dict):
-    with NamedTemporaryFile(mode='w', delete=False) as textfile:
-        total_duration = metrics.pop('total_duration', None)
-        if total_duration is not None:
-            textfile.write(
-                '# HELP probe_duration_seconds The total duration of the probe\n')
-            textfile.write('# TYPE probe_duration_seconds gauge\n')
-            textfile.write('probe_duration_seconds {}\n'.format(total_duration))
+def send_panic_message(subject: str):
+    mail = MIMEText(
+        'email not working'
+        '')
+    mail['Subject'] = subject
+    mail['From'] = config.PANIC_MAIL['sender']
+    mail['To'] = config.PANIC_MAIL['recipient']
+    mail['Date'] = format_datetime(datetime.utcnow())
+    with SMTP(config.PANIC_SMTP['host'], config.PANIC_SMTP['port']) as smtp:
+        smtp_user = config.PANIC_SMTP.get('user')
+        smtp_password = config.PANIC_SMTP.get('password')
+        smtp_tls = config.PANIC_SMTP.get('tls')
+        if smtp_tls:
+            smtp.starttls()
+        if smtp_user and smtp_password:
+            smtp.login(smtp_user, smtp_password)
 
-        send_duration = metrics.pop('send_time_seconds', None)
-        if send_duration is not None:
-            textfile.write(
-                '# HELP probe_send_time_seconds The duration of sending the email\n')
-            textfile.write('# TYPE probe_send_time_seconds gauge\n')
-            textfile.write('probe_send_time_seconds {}\n'.format(send_duration))
-
-        receive_duration = metrics.pop('receive_time_seconds', None)
-        if receive_duration is not None:
-            textfile.write(
-                '# HELP probe_receive_time_seconds The duration of receiving the email '
-                'from the IMAP mailbox\n')
-            textfile.write('# TYPE probe_receive_time_seconds gauge\n')
-            textfile.write('probe_receive_time_seconds {}\n'.format(receive_duration))
-
-        mail_timestamp = metrics.pop('mail_timestamp', None)
-        if mail_timestamp is not None:
-            textfile.write(
-                '# HELP probe_mail_timestamp The timestamp of the email\n')
-            textfile.write('# TYPE probe_mail_timestamp gauge\n')
-            textfile.write('probe_mail_timestamp {}\n'.format(mail_timestamp))
-
-        success = metrics.pop('success', None)
-        if success is not None:
-            textfile.write(
-                '# HELP probe_success Whether the mail delivery was successful\n')
-            textfile.write('# TYPE probe_success gauge\n')
-            textfile.write('probe_success {}\n'.format(int(success)))
-
-        textfile.flush()
-        os.fsync(textfile.fileno())
-        file_name = textfile.name
-    os.rename(file_name, config.TEXTFILE_PATH)
-
-    if metrics:
-        logging.warning('unhandled metrics remaining! %s', metrics)
+        smtp.sendmail(
+            config.PANIC_MAIL['sender'],
+            config.PANIC_MAIL['recipient'],
+            mail.as_string())
+    logging.info('sent panic email with subject "%s"', subject)
 
 
 if __name__ == '__main__':
@@ -176,6 +155,7 @@ if __name__ == '__main__':
     start = datetime.now()
 
     metrics = {}
+
     try:
         check_delivery(metrics)
     except Exception:
@@ -187,4 +167,12 @@ if __name__ == '__main__':
     end = datetime.now()
     metrics['total_duration'] = (end - start).total_seconds()
 
-    write_textfile(metrics)
+    if not metrics['success'] :
+       logging.error('email roundtrip error - exit code has been set see echo $?')
+       send_panic_message("email roundtrip delivery failed")
+       logging.error('sent panic mail')
+       #sys.exit(-500)
+       sys.exit(os.EX_UNAVAILABLE)
+    #test panic message
+    #send_panic_message("email roundtrip delivery failed")
+    sys.exit(0)

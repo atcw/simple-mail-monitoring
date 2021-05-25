@@ -22,6 +22,20 @@ TEST_MAIL = {
     'subject': 'Test-Email {}',
 }
 
+PANIC_SMTP = {
+    'host': 'alwaysworkingsmtpserver.example',
+    'port': 587,
+    'user': 'foobar123',
+    'password': 'foobar123',
+    'tls': True,
+}
+
+PANIC_MAIL = {
+    'sender': 'same as PANIC_SMTP',
+    'recipient': 'Admin's Email',
+    'subject': 'SMTP at [SMTPhost] is not working. Panic!',
+}
+
+
 MAX_RETRIES = 30
 LOG_LEVEL = logging.INFO
-TEXTFILE_PATH = '/opt/prometheus/textfiles/mail_delivery.prom'
