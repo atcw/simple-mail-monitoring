@@ -108,20 +108,24 @@ def send_test_message(subject: str):
     mail['From'] = config.TEST_MAIL['sender']
     mail['To'] = config.TEST_MAIL['recipient']
     mail['Date'] = format_datetime(datetime.utcnow())
-    with SMTP(config.SMTP['host'], config.SMTP['port']) as smtp:
-        smtp_user = config.SMTP.get('user')
-        smtp_password = config.SMTP.get('password')
-        smtp_tls = config.SMTP.get('tls')
-        if smtp_tls:
-            smtp.starttls()
-        if smtp_user and smtp_password:
-            smtp.login(smtp_user, smtp_password)
 
-        smtp.sendmail(
-            config.TEST_MAIL['sender'],
-            config.TEST_MAIL['recipient'],
-            mail.as_string())
-    logging.info('sent test email with subject "%s"', subject)
+    try:
+        with SMTP(config.SMTP['host'], config.SMTP['port']) as smtp:
+            smtp_user = config.SMTP.get('user')
+            smtp_password = config.SMTP.get('password')
+            smtp_tls = config.SMTP.get('tls')
+            if smtp_tls:
+              smtp.starttls()
+            if smtp_user and smtp_password:
+              smtp.login(smtp_user, smtp_password)
+      
+            smtp.sendmail(
+              config.TEST_MAIL['sender'],
+              config.TEST_MAIL['recipient'],
+              mail.as_string())
+            logging.info('sent test email with subject "%s"', subject)
+    except:
+        send_panic_message("smtpd not running on 25")
 
 
 def send_panic_message(subject: str):
@@ -166,8 +170,9 @@ if __name__ == '__main__':
 
     end = datetime.now()
     metrics['total_duration'] = (end - start).total_seconds()
-
-    if not metrics['success'] :
+    
+    if not 'success' in metrics.keys():
+    #if not metrics['success'] :
        logging.error('email roundtrip error - exit code has been set see echo $?')
        send_panic_message("email roundtrip delivery failed")
        logging.error('sent panic mail')
@@ -176,3 +181,5 @@ if __name__ == '__main__':
     #test panic message
     #send_panic_message("email roundtrip delivery failed")
     sys.exit(0)
+# fix tabs to space with vim :%s/\t/  /g
+# vim: tabstop=2 shiftwidth=2 expandtab
